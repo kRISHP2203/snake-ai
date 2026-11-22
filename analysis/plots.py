@@ -17,16 +17,16 @@ import pandas as pd
 
 SURFACE, INK, INK2, GRID = "#fcfcfb", "#0b0b0b", "#52514e", "#e6e5e1"
 COLORS = {
-    "q_basic": "#2a78d6", "q_rich": "#eb6834", "dqn_basic": "#1baf7a", "dqn_rich": "#eda100",
+    "q_basic": "#2a78d6", "q_rich": "#eb6834", "ddqn_basic": "#1baf7a", "ddqn_rich": "#eda100",
     "random": "#c4c3bd", "rule_v1": "#8a8984", "rule_v2": "#52514e",
 }
 NAMES = {
     "q_basic": "Q-learning, basic state", "q_rich": "Q-learning, rich state",
-    "dqn_basic": "DQN, basic state", "dqn_rich": "DQN, rich state",
+    "ddqn_basic": "Double DQN, basic state", "ddqn_rich": "Double DQN, rich state",
     "random": "Random", "rule_v1": "Rule-based v1", "rule_v2": "Rule-based v2",
 }
 # old file/label names from the first version of the project
-ALIASES = {"q_learning": "q_basic", "dqn": "dqn_basic", "rule_based": "rule_v1"}
+ALIASES = {"q_learning": "q_basic", "rule_based": "rule_v1"}
 
 
 def _key(label):
@@ -97,7 +97,7 @@ def load_curves(results_dir="results"):
 def plot_training_curves(curves, out_path, column="score", window=100):
     """Moving average per seed; line = mean over seeds, band = min to max over seeds."""
     panels = [(t, [c for c in cfgs if c in set(curves["config"])])
-              for t, cfgs in (("Q-learning", ["q_basic", "q_rich"]), ("DQN", ["dqn_basic", "dqn_rich"]))]
+              for t, cfgs in (("Q-learning", ["q_basic", "q_rich"]), ("Double DQN", ["ddqn_basic", "ddqn_rich"]))]
     panels = [(t, c) for t, c in panels if c]
     if not panels:
         return
@@ -227,7 +227,7 @@ def plot_sweeps_overview(csv_path, out_path):
         ax.set_xlim(-0.4, len(values) - 0.35)
         ax.set_ylim(0, max(stats["mean"] + stats["std"].fillna(0)) * 1.25 + 0.5)
         ax.set_xlabel(param)
-        ax.set_title(f"{'DQN' if agent == 'dqn' else 'Q-learning'}: {param}", loc="left", fontsize=11)
+        ax.set_title(f"{'Double DQN' if agent == 'ddqn' else 'Q-learning'}: {param}", loc="left", fontsize=11)
         ax.grid(axis="y", color=GRID, linewidth=1)
         ax.set_axisbelow(True)
     for ax in flat[len(combos):]:
@@ -248,7 +248,7 @@ def plot_generalisation(csv_path, out_path):
     df = pd.read_csv(csv_path)
     df = df[df.agent != "random"]            # always about 0, only compresses the axis
     fig, ax = _new_figure(figsize=(7.4, 4.4))
-    order = ["rule_v1", "rule_v2", "q_basic", "q_rich", "dqn_basic", "dqn_rich"]
+    order = ["rule_v1", "rule_v2", "q_basic", "q_rich", "ddqn_basic", "ddqn_rich"]
     for agent in [a for a in order if a in set(df.agent)]:
         sub = df[df.agent == agent].sort_values("grid_size")
         ax.plot(sub["grid_size"], sub["mean_score"], color=_color(agent), linewidth=2, marker="o", ms=6,

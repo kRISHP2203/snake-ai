@@ -11,7 +11,7 @@ from training import config
 from training.evaluate import run_games
 from training.train import train
 
-CONFIGS = [("q", "basic"), ("q", "rich"), ("dqn", "basic"), ("dqn", "rich")]
+CONFIGS = [("q", "basic"), ("q", "rich"), ("ddqn", "basic"), ("ddqn", "rich")]
 
 
 def run_multiseed(seeds=config.SEEDS, eval_games=config.EVAL_GAMES, episodes=None,
@@ -75,7 +75,7 @@ def summarise_multiseed(df):
 def run_generalisation(model_dir="results/models", sizes=config.GRID_SIZES,
                        eval_games=config.EVAL_GAMES, out_csv="results/generalisation_results.csv"):
     """Evaluate models trained on 10x10 (and the baselines) on other grid sizes, no retraining."""
-    from agents.dqn_agent import DQNAgent
+    from agents.double_dqn_agent import DoubleDQNAgent
     from agents.q_learning_agent import QLearningAgent
 
     def build_agents():
@@ -84,7 +84,7 @@ def run_generalisation(model_dir="results/models", sizes=config.GRID_SIZES,
         for kind, mode in CONFIGS:
             path = f"{model_dir}/{kind}_{mode}.npz"
             if os.path.exists(path):
-                agents[f"{kind}_{mode}"] = (QLearningAgent() if kind == "q" else DQNAgent()).load(path)
+                agents[f"{kind}_{mode}"] = (QLearningAgent() if kind == "q" else DoubleDQNAgent()).load(path)
         return agents
 
     rows = []

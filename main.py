@@ -2,10 +2,10 @@
 
 Train and look at one agent
   python main.py train --agent q   --state rich --episodes 3000
-  python main.py train --agent dqn --state rich --episodes 1500
+  python main.py train --agent ddqn --state rich --episodes 1500
   python main.py evaluate --games 100
-  python main.py watch  --agent dqn_rich          (Pygame window; --ascii for text mode)
-  python main.py replay --agent dqn_rich          (saves an animated GIF, no Pygame needed)
+  python main.py watch  --agent ddqn_rich          (Pygame window; --ascii for text mode)
+  python main.py replay --agent ddqn_rich          (saves an animated GIF, no Pygame needed)
 
 Experiments (results go to results/*.csv, graphs to results/graphs/)
   python main.py multiseed --seeds 5               train every agent over several seeds and compare
@@ -14,13 +14,13 @@ Experiments (results go to results/*.csv, graphs to results/graphs/)
   python main.py experiments                       the whole suite above, with the default settings
   python main.py plot                              redraw all graphs from the CSV files
 
-Agent names: random, rule_v1, rule_v2, q_basic, q_rich, dqn_basic, dqn_rich
+Agent names: random, rule_v1, rule_v2, q_basic, q_rich, ddqn_basic, ddqn_rich
 """
 import argparse
 import os
 import time
 
-from agents.dqn_agent import DQNAgent
+from agents.double_dqn_agent import DoubleDQNAgent
 from agents.q_learning_agent import QLearningAgent
 from agents.random_agent import RandomAgent
 from agents.rule_based_agent import RuleBasedAgent, RuleBasedV2Agent
@@ -33,7 +33,7 @@ from training.sweep import sweep
 from training.train import train
 
 MODELS, RESULTS = "results/models", "results"
-ALIASES = {"rule": "rule_v1", "q": "q_rich", "dqn": "dqn_rich"}
+ALIASES = {"rule": "rule_v1", "q": "q_rich", "ddqn": "ddqn_rich"}
 
 
 def parse_value(text):
@@ -58,7 +58,7 @@ def get_agent(name):
         kind, _, state = name.partition("_")
         raise SystemExit(f"No trained model '{path}'. Train one first:\n"
                          f"  python main.py train --agent {kind} --state {state or 'rich'}")
-    return (QLearningAgent() if name.startswith("q_") else DQNAgent()).load(path)
+    return (QLearningAgent() if name.startswith("q_") else DoubleDQNAgent()).load(path)
 
 
 def hyperparams(args):
@@ -114,7 +114,7 @@ def cmd_experiments(args):
     quick = args.quick
     if args.only in ("all", "multiseed"):
         df = run_multiseed(seeds=2 if quick else config.SEEDS, eval_games=30 if quick else config.EVAL_GAMES,
-                           episodes={"q": 300, "dqn": 100} if quick else None)
+                           episodes={"q": 300, "ddqn": 100} if quick else None)
         summary = summarise_multiseed(df)
         print("\n" + summary.to_string())
         summary.to_csv(f"{RESULTS}/multiseed_summary.csv")
@@ -125,7 +125,7 @@ def cmd_experiments(args):
         for kind, param, values in config.SWEEPS:
             episodes = config.SWEEP_EPISODES[kind]
             sweep(kind, param, values, seeds=range(2 if quick else config.SWEEP_SEEDS),
-                  episodes=60 if quick and kind == "dqn" else (200 if quick else episodes),
+                  episodes=60 if quick and kind == "ddqn" else (200 if quick else episodes),
                   eval_games=20 if quick else config.EVAL_GAMES, state_mode="rich", out_csv=path)
     if args.only in ("all", "generalise"):
         run_generalisation(eval_games=20 if quick else config.EVAL_GAMES)
@@ -176,7 +176,7 @@ def main():
     sub = p.add_subparsers(dest="cmd", required=True)
 
     t = sub.add_parser("train"); t.set_defaults(fn=cmd_train)
-    t.add_argument("--agent", choices=["q", "dqn"], default="q")
+    t.add_argument("--agent", choices=["q", "ddqn"], default="q")
     t.add_argument("--state", choices=["basic", "rich"], default="rich")
     t.add_argument("--episodes", type=int, default=2000)
     t.add_argument("--seed", type=int, default=0)
@@ -193,9 +193,9 @@ def main():
     m.add_argument("--seeds", type=int, default=config.SEEDS); m.add_argument("--games", type=int, default=config.EVAL_GAMES)
 
     s = sub.add_parser("sweep"); s.set_defaults(fn=cmd_sweep)
-    s.add_argument("--agent", choices=["q", "dqn"], default="q")
+    s.add_argument("--agent", choices=["q", "ddqn"], default="q")
     s.add_argument("--param", required=True,
-                   help="q: gamma alpha eps_decay | dqn: lr gamma eps_decay batch_size | both: reward_step")
+                   help="q: gamma alpha eps_decay | ddqn: lr gamma eps_decay batch_size | both: reward_step")
     s.add_argument("--values", nargs="+", required=True)
     s.add_argument("--state", choices=["basic", "rich"], default="rich")
     s.add_argument("--seeds", type=int, default=config.SWEEP_SEEDS)
@@ -211,12 +211,12 @@ def main():
     sub.add_parser("plot").set_defaults(fn=cmd_plot)
 
     w = sub.add_parser("watch"); w.set_defaults(fn=cmd_watch)
-    w.add_argument("--agent", default="dqn_rich"); w.add_argument("--games", type=int, default=3)
+    w.add_argument("--agent", default="ddqn_rich"); w.add_argument("--games", type=int, default=3)
     w.add_argument("--size", type=int, default=config.SIZE); w.add_argument("--fps", type=int, default=12)
     w.add_argument("--ascii", action="store_true")
 
     r = sub.add_parser("replay"); r.set_defaults(fn=cmd_replay)
-    r.add_argument("--agent", default="dqn_rich"); r.add_argument("--out", default=None)
+    r.add_argument("--agent", default="ddqn_rich"); r.add_argument("--out", default=None)
     r.add_argument("--size", type=int, default=config.SIZE); r.add_argument("--seed", type=int, default=1_000_000)
     r.add_argument("--fps", type=int, default=10)
 

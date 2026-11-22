@@ -1,4 +1,4 @@
-"""Training loop shared by the tabular Q-learning and DQN agents."""
+"""Training loop shared by the tabular Q-learning and Double DQN agents."""
 import csv
 import os
 import time
@@ -6,7 +6,7 @@ from collections import deque
 
 import numpy as np
 
-from agents.dqn_agent import DQNAgent
+from agents.double_dqn_agent import DoubleDQNAgent
 from agents.q_learning_agent import QLearningAgent
 from game.environment import SnakeEnv
 
@@ -17,10 +17,10 @@ def make_agent(kind, state_mode="rich", seed=0, **hp):
     if kind == "q":
         allowed = {"alpha", "gamma", "eps_decay", "eps_end"}
         return QLearningAgent(state_mode=state_mode, seed=seed, **{k: v for k, v in hp.items() if k in allowed})
-    if kind == "dqn":
+    if kind == "ddqn":
         allowed = {"lr", "gamma", "eps_decay", "eps_end", "batch_size", "hidden", "target_update"}
-        return DQNAgent(state_mode=state_mode, seed=seed, **{k: v for k, v in hp.items() if k in allowed})
-    raise ValueError(f"unknown agent '{kind}' (use 'q' or 'dqn')")
+        return DoubleDQNAgent(state_mode=state_mode, seed=seed, **{k: v for k, v in hp.items() if k in allowed})
+    raise ValueError(f"unknown agent '{kind}' (use 'q' or 'ddqn')")
 
 
 def train(kind, episodes=2000, seed=0, state_mode="rich", env_kwargs=None, log_path=None,
