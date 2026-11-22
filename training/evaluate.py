@@ -1,7 +1,6 @@
 """Evaluation: fixed seeds, no exploration, no learning. Same games for every agent."""
 import os
 
-import numpy as np
 import pandas as pd
 
 from game.environment import SnakeEnv
@@ -10,7 +9,9 @@ EVAL_SEED_START = 1_000_000   # far from any training seed stream
 
 
 def run_games(agent, n_games=100, size=10, seed_start=EVAL_SEED_START, label=None):
-    env = SnakeEnv(size=size)
+    """Play n_games with fixed seeds. The env uses the agent's own state_mode, but the
+    food sequence depends only on the seed, so every agent faces the same games."""
+    env = SnakeEnv(size=size, state_mode=getattr(agent, "state_mode", "basic"))
     rows = []
     for g in range(n_games):
         state = env.reset(seed=seed_start + g)

@@ -1,4 +1,3 @@
 numpy
 pandas
 matplotlib
-pygame   # optional: only needed for the graphical "watch" mode

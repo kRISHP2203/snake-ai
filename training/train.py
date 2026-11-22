@@ -10,26 +10,29 @@ from agents.dqn_agent import DQNAgent
 from agents.q_learning_agent import QLearningAgent
 from game.environment import SnakeEnv
 
+ENV_PARAMS = {"size", "reward_food", "reward_death", "reward_step"}
 
-def make_agent(kind, seed=0, **hp):
+
+def make_agent(kind, state_mode="rich", seed=0, **hp):
     if kind == "q":
         allowed = {"alpha", "gamma", "eps_decay", "eps_end"}
-        return QLearningAgent(seed=seed, **{k: v for k, v in hp.items() if k in allowed})
+        return QLearningAgent(state_mode=state_mode, seed=seed, **{k: v for k, v in hp.items() if k in allowed})
     if kind == "dqn":
         allowed = {"lr", "gamma", "eps_decay", "eps_end", "batch_size", "hidden", "target_update"}
-        return DQNAgent(seed=seed, **{k: v for k, v in hp.items() if k in allowed})
+        return DQNAgent(state_mode=state_mode, seed=seed, **{k: v for k, v in hp.items() if k in allowed})
     raise ValueError(f"unknown agent '{kind}' (use 'q' or 'dqn')")
 
 
-def train(kind, episodes=2000, seed=0, size=10, log_path=None, save_path=None,
-          checkpoint_every=None, verbose=True, **hp):
+def train(kind, episodes=2000, seed=0, state_mode="rich", env_kwargs=None, log_path=None,
+          save_path=None, checkpoint_every=None, verbose=True, **hp):
     """Train an agent. Returns (agent, list_of_episode_rows).
 
-    Training games use their own RNG stream; evaluation uses fixed, separate seeds
-    (see training/evaluate.py), so training and testing never share games.
+    env_kwargs: extra SnakeEnv settings (size, reward_step, ...). Training games use their
+    own RNG stream; evaluation uses fixed, separate seeds (training/evaluate.py), so
+    training and testing never share games.
     """
-    env = SnakeEnv(size=size, seed=seed)
-    agent = make_agent(kind, seed=seed, **hp)
+    env = SnakeEnv(state_mode=state_mode, seed=seed, **(env_kwargs or {}))
+    agent = make_agent(kind, state_mode=state_mode, seed=seed, **hp)
     rows, recent = [], deque(maxlen=100)
     started = time.time()
 
@@ -48,7 +51,7 @@ def train(kind, episodes=2000, seed=0, size=10, log_path=None, save_path=None,
                      "elapsed_s": time.time() - started})
 
         if verbose and (ep % max(1, episodes // 10) == 0 or ep == episodes):
-            print(f"[{kind}] episode {ep:>6}/{episodes}  avg score (last 100): "
+            print(f"[{kind}/{state_mode}] episode {ep:>6}/{episodes}  avg score (last 100): "
                   f"{np.mean(recent):5.2f}  best: {max(r['score'] for r in rows):>3}  "
                   f"epsilon: {agent.epsilon:.3f}")
         if save_path and checkpoint_every and ep % checkpoint_every == 0:

@@ -3,10 +3,17 @@
 Actions are RELATIVE to the snake's current heading:
     0 = go straight, 1 = turn right, 2 = turn left
 
-State is an 11-element binary vector:
+State is a binary vector. Two modes:
+
+  "basic" (11 features)
     [danger_straight, danger_right, danger_left,
      heading_up, heading_right, heading_down, heading_left,
      food_up, food_right, food_down, food_left]
+
+  "rich" (14 features) = basic + 3 "trap" flags
+    [trap_straight, trap_right, trap_left]
+    A trap flag is 1 when the free area reachable after that move (flood fill) is
+    smaller than the snake's length, i.e. the snake would probably box itself in.
 """
 from __future__ import annotations
 
@@ -20,15 +27,21 @@ STRAIGHT, TURN_RIGHT, TURN_LEFT = 0, 1, 2
 TURN_OFFSET = {STRAIGHT: 0, TURN_RIGHT: 1, TURN_LEFT: -1}
 
 
+STATE_SIZES = {"basic": 11, "rich": 14}
+
+
 class SnakeEnv:
     n_actions = 3
-    state_size = 11
 
     def __init__(self, size=10, reward_food=10.0, reward_death=-10.0,
-                 reward_step=0.0, idle_limit_factor=100, seed=None):
+                 reward_step=0.0, idle_limit_factor=100, state_mode="basic", seed=None):
         if size < 5:
             raise ValueError("size must be at least 5")
+        if state_mode not in STATE_SIZES:
+            raise ValueError(f"state_mode must be one of {list(STATE_SIZES)}")
         self.size = size
+        self.state_mode = state_mode
+        self.state_size = STATE_SIZES[state_mode]
         self.reward_food = reward_food
         self.reward_death = reward_death
         self.reward_step = reward_step
@@ -105,7 +118,35 @@ class SnakeEnv:
             fx, fy = self.food
             hx, hy = head
             food = [fy < hy, fx > hx, fy > hy, fx < hx]
-        return np.array(danger + heading + food, dtype=np.float32)
+        features = danger + heading + food
+        if self.state_mode == "rich":
+            features += self._trap_flags(head, d, body)
+        return np.array(features, dtype=np.float32)
+
+    def _trap_flags(self, head, direction, body):
+        """1 if the area reachable after a move is smaller than the snake (flood fill)."""
+        flags = []
+        blocked = set(body)
+        for off in (0, 1, -1):
+            dx, dy = DELTAS[(direction + off) % 4]
+            start = (head[0] + dx, head[1] + dy)
+            if self.check_collision(start, body):
+                flags.append(True)
+                continue
+            flags.append(self._reachable_area(start, blocked | {head}, limit=len(self.snake)) < len(self.snake))
+        return flags
+
+    def _reachable_area(self, start, blocked, limit):
+        """Count free cells reachable from start; stops early once `limit` cells are found."""
+        seen, stack = {start}, [start]
+        while stack and len(seen) < limit:
+            x, y = stack.pop()
+            for dx, dy in DELTAS.values():
+                nxt = (x + dx, y + dy)
+                if nxt not in seen and not self._outside(nxt) and nxt not in blocked:
+                    seen.add(nxt)
+                    stack.append(nxt)
+        return len(seen)
 
     # ------------------------------------------------------------ mechanics
     def place_food(self):

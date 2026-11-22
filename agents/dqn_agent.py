@@ -6,6 +6,8 @@ Loss is mean-squared TD error with the gradient clipped to [-1, 1] (Huber-like).
 """
 import numpy as np
 
+from game.environment import STATE_SIZES
+
 
 class QNetwork:
     def __init__(self, in_dim, hidden, out_dim, lr, rng):
@@ -78,10 +80,12 @@ class ReplayBuffer:
 class DQNAgent:
     name = "dqn"
 
-    def __init__(self, n_actions=3, state_size=11, hidden=64, lr=1e-3, gamma=0.9,
+    def __init__(self, n_actions=3, state_mode="basic", hidden=64, lr=1e-3, gamma=0.9,
                  batch_size=64, buffer_size=50_000, warmup=1000, train_every=1,
                  target_update=500, eps_start=1.0, eps_end=0.01, eps_decay=0.995, seed=0):
+        state_size = STATE_SIZES[state_mode]
         self.n_actions, self.state_size, self.hidden = n_actions, state_size, hidden
+        self.state_mode = state_mode
         self.gamma, self.batch_size = gamma, batch_size
         self.warmup, self.train_every, self.target_update = warmup, train_every, target_update
         self.epsilon, self.eps_end, self.eps_decay = eps_start, eps_end, eps_decay
@@ -117,11 +121,13 @@ class DQNAgent:
         self.epsilon = max(self.eps_end, self.epsilon * self.eps_decay)
 
     def save(self, path):
-        np.savez(path, epsilon=self.epsilon, hidden=self.hidden, **self.net.p)
+        np.savez(path, epsilon=self.epsilon, hidden=self.hidden,
+                 state_mode=self.state_mode, **self.net.p)
 
     def load(self, path):
         data = np.load(path)
-        self.hidden = int(data["hidden"])
+        mode = str(data["state_mode"]) if "state_mode" in data else "basic"
+        self.__init__(n_actions=self.n_actions, state_mode=mode, hidden=int(data["hidden"]))
         self.net.p = {k: data[k] for k in self.net.p}
         self.target.copy_from(self.net)
         self.epsilon = float(data["epsilon"])
