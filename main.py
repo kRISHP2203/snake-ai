@@ -56,6 +56,9 @@ def get_agent(name):
     path = f"{MODELS}/{name}.npz"
     if not os.path.exists(path):
         kind, _, state = name.partition("_")
+        if kind not in ("q", "ddqn") or state not in ("", "basic", "rich"):
+            raise SystemExit(f"Unknown agent '{name}'. Use one of: random, rule_v1, rule_v2, "
+                             "q_basic, q_rich, ddqn_basic, ddqn_rich")
         raise SystemExit(f"No trained model '{path}'. Train one first:\n"
                          f"  python main.py train --agent {kind} --state {state or 'rich'}")
     return (QLearningAgent() if name.startswith("q_") else DoubleDQNAgent()).load(path)
@@ -75,9 +78,12 @@ def cmd_train(args):
     if args.reward_step is not None:
         env_kwargs["reward_step"] = args.reward_step
     name = f"{args.agent}_{args.state}"
-    train(args.agent, episodes=args.episodes, seed=args.seed, state_mode=args.state, env_kwargs=env_kwargs,
-          log_path=f"{RESULTS}/training_log_{name}.csv", save_path=f"{MODELS}/{name}",
-          checkpoint_every=args.checkpoint_every, **hyperparams(args))
+    try:
+        train(args.agent, episodes=args.episodes, seed=args.seed, state_mode=args.state, env_kwargs=env_kwargs,
+              log_path=f"{RESULTS}/training_log_{name}.csv", save_path=f"{MODELS}/{name}",
+              checkpoint_every=args.checkpoint_every, **hyperparams(args))
+    except TypeError as err:                       # e.g. --batch-size with --agent q
+        raise SystemExit(f"Setting not supported by '{args.agent}': {err}")
     print(f"Done. Model: {MODELS}/{name}.npz   Log: {RESULTS}/training_log_{name}.csv")
 
 
@@ -112,14 +118,17 @@ def cmd_generalise(args):
 
 def cmd_experiments(args):
     quick = args.quick
+    out = f"{RESULTS}/quick" if quick else RESULTS          # quick numbers are meaningless: keep them away from the real ones
+    os.makedirs(out, exist_ok=True)
     if args.only in ("all", "multiseed"):
         df = run_multiseed(seeds=2 if quick else config.SEEDS, eval_games=30 if quick else config.EVAL_GAMES,
-                           episodes={"q": 300, "ddqn": 100} if quick else None)
+                           episodes={"q": 300, "ddqn": 100} if quick else None,
+                           out_dir=out, model_dir=f"{out}/models")
         summary = summarise_multiseed(df)
         print("\n" + summary.to_string())
-        summary.to_csv(f"{RESULTS}/multiseed_summary.csv")
+        summary.to_csv(f"{out}/multiseed_summary.csv")
     if args.only in ("all", "sweeps"):
-        path = f"{RESULTS}/experiment_results.csv"
+        path = f"{out}/experiment_results.csv"
         if os.path.exists(path):
             os.remove(path)                                  # start clean so reruns do not duplicate rows
         for kind, param, values in config.SWEEPS:
@@ -128,7 +137,8 @@ def cmd_experiments(args):
                   episodes=60 if quick and kind == "ddqn" else (200 if quick else episodes),
                   eval_games=20 if quick else config.EVAL_GAMES, state_mode="rich", out_csv=path)
     if args.only in ("all", "generalise"):
-        run_generalisation(eval_games=20 if quick else config.EVAL_GAMES)
+        run_generalisation(model_dir=f"{out}/models", eval_games=20 if quick else config.EVAL_GAMES,
+                           out_csv=f"{out}/generalisation_results.csv")
 
 
 def cmd_plot(args):

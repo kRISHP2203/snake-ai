@@ -32,5 +32,13 @@ def sweep(kind, param, values, seeds=(0, 1, 2), episodes=2000, eval_games=100,
             print(f"[{kind}] {param}={value} seed={seed}: eval mean score {mean_score:.2f}", flush=True)
     df = pd.DataFrame(rows)
     os.makedirs(os.path.dirname(out_csv) or ".", exist_ok=True)
-    df.to_csv(out_csv, mode="a", header=not os.path.exists(out_csv), index=False)
+    out = df
+    if os.path.exists(out_csv):             # rerunning a sweep replaces its old rows instead of duplicating them
+        old = pd.read_csv(out_csv, dtype=str, keep_default_na=False)   # str: old rows are written back unchanged
+        # replace only the (value, seed) runs just redone, so adding one value keeps the rest of the sweep
+        redone = set(zip(df.value.astype(str), df.seed.astype(str)))
+        same = ((old.agent == kind) & (old.param == param) & (old.state_mode == state_mode)
+                & pd.Series([(v, sd) in redone for v, sd in zip(old.value, old.seed)], index=old.index))
+        out = pd.concat([old[~same], df], ignore_index=True)
+    out.to_csv(out_csv, index=False)
     return df

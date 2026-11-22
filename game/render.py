@@ -17,7 +17,11 @@ def _q_values(agent, state):
 
 
 def watch(env, agent, games=5, fps=12, cell=30, seed=1_000_000, label=None):
-    import pygame  # imported lazily so training never needs it
+    try:
+        import pygame  # imported lazily so training never needs it
+    except ModuleNotFoundError:
+        raise SystemExit("Pygame is not installed. Run: pip install pygame\n"
+                         "or use the text viewer: python main.py watch --agent <name> --ascii")
 
     label = label or agent.name
     pygame.init()

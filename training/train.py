@@ -14,12 +14,11 @@ ENV_PARAMS = {"size", "reward_food", "reward_death", "reward_step"}
 
 
 def make_agent(kind, state_mode="rich", seed=0, **hp):
+    # hp goes straight through, so a setting the agent does not have raises TypeError instead of being ignored
     if kind == "q":
-        allowed = {"alpha", "gamma", "eps_decay", "eps_end"}
-        return QLearningAgent(state_mode=state_mode, seed=seed, **{k: v for k, v in hp.items() if k in allowed})
+        return QLearningAgent(state_mode=state_mode, seed=seed, **hp)
     if kind == "ddqn":
-        allowed = {"lr", "gamma", "eps_decay", "eps_end", "batch_size", "hidden", "target_update"}
-        return DoubleDQNAgent(state_mode=state_mode, seed=seed, **{k: v for k, v in hp.items() if k in allowed})
+        return DoubleDQNAgent(state_mode=state_mode, seed=seed, **hp)
     raise ValueError(f"unknown agent '{kind}' (use 'q' or 'ddqn')")
 
 
